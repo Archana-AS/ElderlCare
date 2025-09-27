@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+langchain
+langchain-core
+langchain-ollama
+langchain-chroma
+langchain-huggingface
+chromadb
+sentence-transformers
+mysql-connector-python
