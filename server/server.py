@@ -6,7 +6,7 @@ import asyncio
 from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.memory import ConversationBufferMemory
+from langchain.memory.buffer import ConversationBufferMemory
 from langchain_core.messages import HumanMessage
 
 app = FastAPI()
@@ -20,14 +20,14 @@ class ChatRequest(BaseModel):
 # --- MODEL ---
 # NOTE: Using ChatOllama from the dedicated langchain_ollama package
 llm = ChatOllama(
-    model="helpingai",    
+    model="eldercare",    
     streaming=True,
-    temperature=0.7
+
 )
 
 # --- MEMORY ---
 # ConversationBufferMemory is a standard LangChain memory component
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+short_term_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
 # --- VECTOR DB for Long-term memory ---
 # NOTE: Using HuggingFaceEmbeddings and Chroma from their dedicated packages
@@ -35,7 +35,7 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 vectorstore = Chroma(collection_name="elderly_memories", embedding_function=embeddings)
 
 # --- SYSTEM PROMPT (elderly-care role) ---
-system_prompt = """You are a compassionate medical assistant chatbot.
+system_prompt = """You are a compassionate medical assistant ch atbot.
 Your role is to help elderly people:
 - Talk warmly, patiently, and simply
 - Provide companionship and reassurance
