@@ -2,35 +2,76 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+// NEW: A class to hold either a text token or structured reminder data
+class ChatResponse {
+  final String? text;
+  final Map<String, dynamic>? reminderData;
+
+  ChatResponse.text(this.text) : reminderData = null;
+  ChatResponse.reminder(this.reminderData) : text = null;
+
+  bool get isReminder => reminderData != null;
+}
+
 class OllamaChatService {
+  // Use the correct base URL for the emulator
   final String _baseUrl = 'http://10.0.2.2:8000';
 
-  Stream<String> streamChatResponse({
+  // Change return type to Stream<ChatResponse>
+  Stream<ChatResponse> streamChatResponse({
     required String prompt,
   }) async* {
     final uri = Uri.parse('$_baseUrl/chat');
     final client = http.Client();
     final body = jsonEncode({'user_input': prompt});
 
-    try {
-      final request = http.Request('POST', uri)
-        ..headers['Content-Type'] = 'application/json'
-        ..body = body;
+    final request = http.Request('POST', uri)
+      ..headers['Content-Type'] = 'application/json'
+      ..body = body;
 
-      final response = await client.send(request);
+    // Send the request and get the streamed response
+    final response = await client.send(request);
 
-      if (response.statusCode != 200) {
-        throw Exception('API request failed with status: ${response.statusCode}');
-      }
-
-      await for (var chunk in response.stream) {
-        final token = utf8.decode(chunk);
-        yield token;
-      }
-    } catch (e) {
-      throw Exception('Failed to stream response: $e');
-    } finally {
+    if (response.statusCode != 200) {
+      // Consume and decode any error body for better debugging
+      final errorBody = await response.stream.bytesToString();
       client.close();
+      throw Exception('API request failed with status: ${response.statusCode}. Body: $errorBody');
+    }
+
+    // 1. Check for JSON (Reminder) Response
+    final contentType = response.headers['content-type']?.split(';').first.trim();
+    if (contentType == 'application/json') {
+      try {
+        // Read the entire JSON body from the stream
+        final jsonString = await response.stream.bytesToString();
+        final jsonResponse = jsonDecode(jsonString) as Map<String, dynamic>;
+
+        client.close();
+
+        // Yield the structured reminder data
+        yield ChatResponse.reminder(jsonResponse['data'] as Map<String, dynamic>);
+      } catch (e) {
+        client.close();
+        throw Exception('Failed to decode JSON response: $e');
+      }
+    }
+    // 2. Handle Text Streaming Response
+    else if (contentType == 'text/plain') {
+      try {
+        await for (var chunk in response.stream) {
+          final token = utf8.decode(chunk);
+          // Yield text chunks
+          yield ChatResponse.text(token);
+        }
+      } catch (e) {
+        throw Exception('Failed to stream text response: $e');
+      } finally {
+        client.close();
+      }
+    } else {
+      client.close();
+      throw Exception('Unsupported Content-Type: $contentType');
     }
   }
 }

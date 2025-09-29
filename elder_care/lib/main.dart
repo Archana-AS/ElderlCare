@@ -1,7 +1,10 @@
 import 'package:elder_care/screens/splashscreen.dart';
 import 'package:flutter/material.dart';
 
+import 'core/api/reminders.dart';
+
 void main() {
+  initializeAppDependencies();
   runApp(const MyApp());
 }
 
