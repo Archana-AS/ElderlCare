@@ -7,11 +7,10 @@ class OllamaChatService {
 
   Stream<String> streamChatResponse({
     required String prompt,
-    String model = 'helpingai',
   }) async* {
     final uri = Uri.parse('$_baseUrl/chat');
     final client = http.Client();
-    final body = jsonEncode({'prompt': prompt, 'model': model});
+    final body = jsonEncode({'user_input': prompt});
 
     try {
       final request = http.Request('POST', uri)
