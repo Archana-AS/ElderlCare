@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+
   mysql_client: ^0.0.27
 
 
@@ -42,6 +43,11 @@ dependencies:
   timezone: ^0.9.0
   permission_handler: ^11.0.0
   flutter_timezone: ^4.1.1
+  speech_to_text: ^6.3.0
+  provider: ^6.1.5+1
+  flutter_tts: ^4.2.3
+
+
 
 dev_dependencies:
   flutter_test:

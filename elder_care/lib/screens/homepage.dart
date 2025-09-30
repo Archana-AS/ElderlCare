@@ -1,3 +1,4 @@
+import 'package:elder_care/screens/test.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -51,6 +52,17 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         backgroundColor: const Color(0xFF6C63FF),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chat),
+            tooltip: 'Go to Chat',
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const ChatScreen())
+              ); // or pushNamed()
+            },
+          ),
+        ],
         title: const Text(
           "ElderCare",
           style: TextStyle(

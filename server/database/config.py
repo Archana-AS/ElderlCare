@@ -49,7 +49,7 @@ class SqlOnline:
         except:
             return False
         finally:
-            self._close()
+            self._close(conn,curs)
 
     
     def update_url(self,url:str)->bool:
@@ -72,7 +72,7 @@ class SqlOnline:
             print(e)
             return False
         finally:
-            self._close()
+            self._close(conn,curs)
 
 
     def get_url(self)->str:
@@ -88,5 +88,5 @@ class SqlOnline:
         except:
             return ""
         finally:
-            self._close()
+            self._close(conn,curs)
 

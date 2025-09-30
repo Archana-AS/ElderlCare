@@ -15,7 +15,7 @@ class ChatResponse {
 
 class OllamaChatService {
   // Use the correct base URL for the emulator
-  final String _baseUrl = 'http://10.0.2.2:8000';
+  final String _baseUrl = 'https://developers-sea-aaa-excess.trycloudflare.com';
 
   // Change return type to Stream<ChatResponse>
   Stream<ChatResponse> streamChatResponse({

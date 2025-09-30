@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'package:elder_care/screens/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../core/api/chat.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:timezone/timezone.dart' as tz;
-
+import 'package:flutter_tts/flutter_tts.dart';
+import '../core/api/chat.dart';
 import '../core/api/reminders.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -15,22 +16,14 @@ class ChatScreen extends StatefulWidget {
 }
 
 Future<void> _scheduleNativeReminder(String task, String scheduledTimeUtc) async {
-  // Parse the ISO 8601 UTC timestamp
   final scheduledDateTime = DateTime.parse(scheduledTimeUtc);
+  final tz.TZDateTime scheduledTZDateTime = tz.TZDateTime.from(scheduledDateTime, tz.local);
 
-  // Convert the standard DateTime to a Timezone-aware DateTime (TZDateTime)
-  // using the local location (tz.local) which was set up in initNotifications()
-  final tz.TZDateTime scheduledTZDateTime =
-  tz.TZDateTime.from(scheduledDateTime, tz.local);
-
-  // You need a unique ID for each notification.
-  // A simple way is to use the current time's millisecondsSinceEpoch
-  // or a counter, though a dedicated database ID is best in a real app.
-  const int notificationId = 0; // Use a different ID for each reminder
+  const int notificationId = 0; // Update this in real app to unique ID
 
   const NotificationDetails notificationDetails = NotificationDetails(
     android: AndroidNotificationDetails(
-      'reminder_channel_id', // Must be unique
+      'reminder_channel_id',
       'Reminders',
       channelDescription: 'Notification channel for scheduled reminders',
       importance: Importance.max,
@@ -45,105 +38,225 @@ Future<void> _scheduleNativeReminder(String task, String scheduledTimeUtc) async
   );
 
   await flutterLocalNotificationsPlugin.zonedSchedule(
-    notificationId, // The unique ID
-    'Reminder: $task', // Notification Title
-    'Time to complete your task!', // Notification Body
-    scheduledTZDateTime, // The scheduled time as TZDateTime
+    notificationId,
+    'Reminder: $task',
+    'Time to complete your task!',
+    scheduledTZDateTime,
     notificationDetails,
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    // Required for scheduling exact alarms on modern Android devices
-    uiLocalNotificationDateInterpretation:
-    UILocalNotificationDateInterpretation.absoluteTime,
-    // Optional: add a payload to handle taps, e.g., 'task_id_123'
+    uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     payload: 'task_payload_$notificationId',
   );
-
-  print('--- Native Reminder Scheduled ---');
-  print('Task: $task');
-  print('Scheduled Time (Local TZ): $scheduledTZDateTime');
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  // ... existing variables ...
   final OllamaChatService _chatService = OllamaChatService();
   final TextEditingController _controller = TextEditingController();
-  // Using a list to store the chat history for a better display
-  final List<String> _messages = [];
+  final ScrollController _scrollController = ScrollController();
+  bool isSpoken = false;
+
+  FlutterTts flutterTts = FlutterTts();
+
+  Future<void> configureTts() async {
+    await flutterTts.setLanguage('en-US');
+    await flutterTts.setSpeechRate(0.0);
+    await flutterTts.setVolume(1.0);
+  }
+
+
+  final List<Map<String, dynamic>> _messages = []; // {'text': '', 'isUser': true/false}
   String _currentTypingText = '';
   bool _isLoading = false;
+
+  // Speech-to-text
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+    configureTts();
+  }
 
   void _sendMessage() {
     final prompt = _controller.text.trim();
     if (prompt.isEmpty || _isLoading) return;
 
-    // Add user message to history
     setState(() {
-      _messages.add("You: $prompt"); // Simple way to show user message
+      _messages.add({'text': prompt, 'isUser': true});
       _isLoading = true;
       _currentTypingText = '';
+      _scrollToBottom();
+
     });
-    _controller.clear(); // Clear input field immediately
+
+    _controller.clear();
 
     try {
-      // The stream now yields ChatResponse objects
       _chatService.streamChatResponse(prompt: prompt).listen(
             (response) {
           if (response.isReminder) {
-            // --- HANDLER FOR REMINDER JSON RESPONSE ---
             final data = response.reminderData!;
             final task = data['task'] as String;
             final timeUtc = data['scheduled_time_utc'] as String;
             final acknowledgement = data['acknowledgement'] as String;
 
-            // 1. SCHEDULE NATIVE PHONE REMINDER
             _scheduleNativeReminder(task, timeUtc);
 
-            // 2. UPDATE CHAT HISTORY WITH ACKNOWLEDGEMENT
             setState(() {
-              _messages.add("ElderCare: $acknowledgement");
+              _messages.add({'text': acknowledgement, 'isUser': false});
               _isLoading = false;
-            });
+              if (isSpoken==true) {
+                print("here");
+                flutterTts.speak(acknowledgement);
+                isSpoken= false;
+              }
+              _scrollToBottom();
 
+            });
           } else {
-            // --- HANDLER FOR STREAMING TEXT RESPONSE ---
             setState(() {
               _currentTypingText += response.text!;
+              _scrollToBottom();
             });
           }
         },
         onError: (error) {
           setState(() {
-            _messages.add('Error: $error');
+            _messages.add({'text': 'Error: $error', 'isUser': false});
             _currentTypingText = '';
             _isLoading = false;
           });
         },
         onDone: () {
           if (_currentTypingText.isNotEmpty) {
-            // Finalize the streamed response and add it to history
-            setState(() {
-              _messages.add("ElderCare: $_currentTypingText");
+            setState(()  {
+              _messages.add({'text': _currentTypingText, 'isUser': false});
+              print(isSpoken);
+              if (isSpoken==true) {
+                flutterTts.speak(_currentTypingText);
+                isSpoken= false;
+              }
               _currentTypingText = '';
               _isLoading = false;
+              _scrollToBottom();
+
             });
           }
         },
       );
     } catch (e) {
       setState(() {
-        _messages.add('Fatal Error: $e');
+        _messages.add({'text': 'Fatal Error: $e', 'isUser': false});
         _isLoading = false;
         _currentTypingText = '';
       });
     }
   }
 
+  Future<void> _startListening() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        setState(() => _isListening = false);
+        debugPrint('Speech error: $error');
+      },
+    );
+    if (available) {
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (val) {
+          setState(() => _controller.text = val.recognizedWords);
+          if (val.hasConfidenceRating && val.confidence > 0.8 && val.finalResult) {
+            _speech.stop();
+            setState(() {
+              isSpoken = true;
+              _isListening = false;
+            });
+            _sendMessage();
+          }
+        },
+        listenFor: const Duration(seconds: 10),
+      );
+    } else {
+      setState(() =>_isListening = false);
+    }
+  }
+
+  void _scrollToBottom() {
+    // Delayed to allow UI to build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+
+  Widget _buildMessageBubble(String text, bool isUser) {
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4.0),
+        padding: const EdgeInsets.all(12.0),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        decoration: BoxDecoration(
+          color: isUser ? Colors.blueAccent : Colors.grey[300],
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: Radius.circular(isUser ? 12 : 0),
+            bottomRight: Radius.circular(isUser ? 0 : 12),
+          ),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isUser ? Colors.white : Colors.black87,
+            fontSize: 16.0,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Companion Chat'),
-        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 0,
+        backgroundColor: const Color(0xFF6C63FF),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Go to Chat',
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const HomePage(name: "ABK"))
+              ); // or pushNamed()
+            },
+          ),
+        ],
+        title: const Text(
+          "ElderCare",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        centerTitle: true,
+        toolbarHeight: 70,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -151,27 +264,22 @@ class _ChatScreenState extends State<ChatScreen> {
           children: <Widget>[
             Expanded(
               child: ListView.builder(
-                // Use a ListView to display all messages
+                controller: _scrollController,
                 itemCount: _messages.length + (_currentTypingText.isNotEmpty ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < _messages.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text(_messages[index], style: const TextStyle(fontSize: 16.0)),
-                    );
+                    final msg = _messages[index];
+                    return _buildMessageBubble(msg['text'], msg['isUser']);
                   } else {
-                    // Display the currently typing text
-                    return Text(
-                      "ElderCare: $_currentTypingText" + (_isLoading ? ' |' : ''), // ' |' to simulate typing
-                      style: const TextStyle(fontSize: 16.0, fontStyle: FontStyle.italic),
+                    return _buildMessageBubble(
+                      "ElderCare: $_currentTypingText" + (_isLoading ? ' |' : ''),
+                      false,
                     );
                   }
                 },
               ),
             ),
-
             const SizedBox(height: 16.0),
-
             Row(
               children: <Widget>[
                 Expanded(
@@ -188,16 +296,27 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(width: 8.0),
                 FloatingActionButton(
+                  heroTag: "send_btn",
                   onPressed: _sendMessage,
                   tooltip: 'Send Message',
                   elevation: 2,
+                  backgroundColor: Colors.blueAccent,
                   child: _isLoading
                       ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                       : const Icon(Icons.send),
+                ),
+                const SizedBox(width: 8.0),
+                FloatingActionButton(
+                  heroTag: "mic_btn",
+                  onPressed: _isListening ? null : _startListening,
+                  tooltip: 'Voice Input',
+                  elevation: 2,
+                  backgroundColor: _isListening ? Colors.grey : Colors.green,
+                  child: const Icon(Icons.mic),
                 ),
               ],
             ),
@@ -206,4 +325,12 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+
 }

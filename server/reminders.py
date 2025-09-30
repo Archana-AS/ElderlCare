@@ -29,26 +29,18 @@ reminder_tool = convert_to_openai_function(Reminder)
 
 # --- NEW: Helper for Time Conversion (Crucial for Flutter) ---
 def get_utc_timestamp(time_phrase: str, user_tz: str = 'Asia/Kolkata') -> Union[str, None]:
-    """Converts a natural language time phrase into an ISO 8601 UTC timestamp."""
     if not time_phrase:
         return None
 
     try:
-        # 1. Get the current time in the user's assumed time zone (Important!)
         local_tz = pytz.timezone(user_tz)
         now_local = datetime.now(local_tz)
-
-        # 2. Parse the natural language phrase relative to the current time
-        # We use now_local as the default for context (e.g., 'tomorrow')
         dt_local_naive = dateutil.parser.parse(time_phrase, fuzzy=True, default=now_local.replace(tzinfo=None))
         
-        # 3. Localize the naive datetime object
         dt_local_aware = local_tz.localize(dt_local_naive, is_dst=None)
         
-        # 4. Convert to UTC
         dt_utc = dt_local_aware.astimezone(pytz.utc)
 
-        # 5. Return in ISO 8601 format
         return dt_utc.isoformat().replace('+00:00', 'Z')
 
     except Exception as e:
@@ -61,7 +53,8 @@ def llama_extract_task_and_time(message: str, chain) -> dict:
 
     prompt = f"""Extract the reminder task and time from the following sentence. 
 Return it as a JSON object with two fields: "task" and "time". 
-"time" can be a time expression like "in 20 minutes" or "at 3:45PM" or "at 2:13 am". Just return the JSON only.
+"time" can be a time expression like "in 20 minutes" or "at 3:45PM" or "at 2:13 am". Just return the JSON only. current time is {current_time}.
+if its time like 3:06pm something like its refering to IST, change value to UTC before returning.
 
 Sentence: "{message}"
 

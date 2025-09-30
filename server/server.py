@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from reminders import readtime, Reminder, get_utc_timestamp, llama_extract_task_and_time
+from database.database import db
 
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_message_histories import ChatMessageHistory
 
-
+ 
 app = FastAPI()
 chat_history = ChatMessageHistory()
 
@@ -85,7 +86,7 @@ async def chat_endpoint(request: ChatRequest):
                 | llm
                 | StrOutputParser()
             ).ainvoke({}) 
-            print(readtime( llama_extract_task_and_time(user_input, chain)['time']))
+            #print( llama_extract_task_and_time(user_input, chain)['time'])
 
             chat_history.add_user_message(user_input)
             chat_history.add_ai_message(acknowledgement_text)

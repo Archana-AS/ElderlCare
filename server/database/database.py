@@ -24,4 +24,17 @@ class SQLiteDB:
             cur.execute(query, args)
             return cur.fetchall()
         
-db = SQLiteDB("database/data.db")
+db = SQLiteDB("database/db/data.db")
+
+db.execute("""
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task TEXT NOT NULL,
+    time TEXT NOT NULL
+);
+""")
+
+db.execute("""
+INSERT INTO reminders (task, time)
+VALUES ('Doctor appointment at 5:00 PM', '2025-09-29T11:30:00Z');
+""")
