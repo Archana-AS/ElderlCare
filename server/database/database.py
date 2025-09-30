@@ -27,14 +27,13 @@ class SQLiteDB:
 db = SQLiteDB("database/db/data.db")
 
 db.execute("""
-CREATE TABLE IF NOT EXISTS reminders (
+CREATE TABLE IF NOT EXISTS emergency (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task TEXT NOT NULL,
-    time TEXT NOT NULL
+    name TEXT NOT NULL,
+    number BIGINT NOT NULL 
 );
 """)
 
-db.execute("""
-INSERT INTO reminders (task, time)
-VALUES ('Doctor appointment at 5:00 PM', '2025-09-29T11:30:00Z');
-""")
+#db.execute("""INSERT INTO emergency(name,number) VALUES("Aravind", 8111938885)""")
+#TASKS = db.fetchall("SELECT task,time FROM reminders")
+#print(TASKS)

@@ -50,10 +50,10 @@ chat_prompt = ChatPromptTemplate.from_messages([
 chain = chat_prompt | llm | StrOutputParser()
 
 
-
 class ChatRequest(BaseModel):
     """Schema for the incoming chat request."""
     user_input: str
+
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
@@ -87,14 +87,16 @@ async def chat_endpoint(request: ChatRequest):
                 | StrOutputParser()
             ).ainvoke({}) 
             #print( llama_extract_task_and_time(user_input, chain)['time'])
-
             chat_history.add_user_message(user_input)
             chat_history.add_ai_message(acknowledgement_text)
-            return JSONResponse(content={
+            time = llama_extract_task_and_time(user_input, chain)['time']
+            print(time)
+            db.execute("INSERT INTO reminders(task,time) VALUES(?,?);", extracted_data.reminder_task, time)
+            return JSONResponse(content={   
                 "type": "reminder_scheduled",
                 "data": {
                     "task": extracted_data.reminder_task,
-                    "scheduled_time_utc": llama_extract_task_and_time(user_input, chain)['time'],
+                    "scheduled_time_utc": time,
                     "acknowledgement": acknowledgement_text
                 }
             })
@@ -117,6 +119,81 @@ async def chat_endpoint(request: ChatRequest):
     return StreamingResponse(event_stream(), media_type="text/plain")
 
 
+
+
+
+
+
+
+
+
+# REMINDER
+class Reminder(BaseModel):
+    notifid : int
+    task: str
+    time: str  
+
+@app.post("/reminderAdd")
+def add_reminder(reminder: Reminder):
+    try:
+        notifId = reminder.notifid
+        task = reminder.task
+        time = reminder.time  
+        db.execute("INSERT INTO reminders  VALUES (? , ?, ?)", notifId, task, time)
+        return {"status": "success", "message": "Reminder added"}
+    except Exception as e:
+        print(e)
+        return {"status":"error","message":e}
+    
+@app.delete("/reminderDelete/{notifid}")
+def delete_reminder(notifid: int):
+    try:
+        db.execute("DELETE FROM reminders WHERE id = ?", notifid)
+        return {"status": "success", "message": f"Reminder with id {notifid} deleted"}
+    except Exception as e:
+        print(e)
+
+@app.get("/reminders")
+def get_tasks():
+    results = db.fetchall("SELECT task,time FROM reminders")
+    tasks = []
+    for task_text, task_time in results:
+        tasks.append({
+            "text": task_text,
+            "time": task_time
+        })
+    return tasks
+
+# EMERGENCY
+
+class EmergencyContact(BaseModel):
+    name: str
+    number: str
+
+@app.post("/emergencyAdd")
+def add_emergency_contact(contact: EmergencyContact):
+    try:
+        name = contact.name
+        number = int(contact.number)
+        db.execute("INSERT INTO emergency (name, number) VALUES (?, ?)", name, number)
+        return {"status": "success", "message": "Emergency contact added"}
+    except Exception as e:
+        print(e)
+        return {"status":"error","message":e}
+
+@app.get("/emergency")
+def get_tasks():
+    results = db.fetchall("SELECT name,number FROM emergency")
+    tasks = []
+    for task_text, task_time in results:
+        tasks.append({
+            "name": task_text,
+            "number": task_time
+        })
+    return tasks
+
+#
+
 if __name__ == "__main__":
     import uvicorn
     from flaredantic import FlareTunnel, FlareConfig
@@ -126,11 +203,11 @@ if __name__ == "__main__":
     PORT = 8000
     config = FlareConfig(port=PORT)
     
-    #with FlareTunnel(config) as tunnel:
+    # with FlareTunnel(config) as tunnel:
         
-        #url = SqlOnline()
-        #url.update_url(tunnel.tunnel_url)
+    #     url = SqlOnline()
+    #     url.update_url(tunnel.tunnel_url)
 
-        #print(f"Public url: {tunnel.tunnel_url}")
-        #print(f"Local : http://{HOST}:{PORT}")
+    #     print(f"Public url: {tunnel.tunnel_url}")
+    #     print(f"Local : http://{HOST}:{PORT}")
     uvicorn.run(app, host=HOST, port=PORT)

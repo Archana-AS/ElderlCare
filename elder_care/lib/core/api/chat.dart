@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:elder_care/core/api/urlfinder.dart';
 import 'package:http/http.dart' as http;
 
 // NEW: A class to hold either a text token or structured reminder data
@@ -15,12 +16,15 @@ class ChatResponse {
 
 class OllamaChatService {
   // Use the correct base URL for the emulator
-  final String _baseUrl = 'https://developers-sea-aaa-excess.trycloudflare.com';
+  late String _baseUrl = '';
 
   // Change return type to Stream<ChatResponse>
   Stream<ChatResponse> streamChatResponse({
     required String prompt,
   }) async* {
+    if (_baseUrl==''){
+      _baseUrl = await getPublicUrl();
+    }
     final uri = Uri.parse('$_baseUrl/chat');
     final client = http.Client();
     final body = jsonEncode({'user_input': prompt});

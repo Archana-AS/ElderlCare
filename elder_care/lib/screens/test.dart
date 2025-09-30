@@ -15,40 +15,6 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-Future<void> _scheduleNativeReminder(String task, String scheduledTimeUtc) async {
-  final scheduledDateTime = DateTime.parse(scheduledTimeUtc);
-  final tz.TZDateTime scheduledTZDateTime = tz.TZDateTime.from(scheduledDateTime, tz.local);
-
-  const int notificationId = 0; // Update this in real app to unique ID
-
-  const NotificationDetails notificationDetails = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'reminder_channel_id',
-      'Reminders',
-      channelDescription: 'Notification channel for scheduled reminders',
-      importance: Importance.max,
-      priority: Priority.high,
-    ),
-    iOS: DarwinNotificationDetails(
-      sound: 'default',
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    ),
-  );
-
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    notificationId,
-    'Reminder: $task',
-    'Time to complete your task!',
-    scheduledTZDateTime,
-    notificationDetails,
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-    payload: 'task_payload_$notificationId',
-  );
-}
-
 class _ChatScreenState extends State<ChatScreen> {
   final OllamaChatService _chatService = OllamaChatService();
   final TextEditingController _controller = TextEditingController();
@@ -102,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
             final timeUtc = data['scheduled_time_utc'] as String;
             final acknowledgement = data['acknowledgement'] as String;
 
-            _scheduleNativeReminder(task, timeUtc);
+            scheduleNativeReminder(task, timeUtc);
 
             setState(() {
               _messages.add({'text': acknowledgement, 'isUser': false});

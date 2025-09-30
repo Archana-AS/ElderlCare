@@ -24,10 +24,12 @@ class SqlOnline:
 
             #query = "CREATE TABLE IF NOT EXISTS filessio (public_url VARCHAR(100))"
             #curs.execute(query)
+            print(url)
 
             return conn, curs
         
-        except:
+        except Exception as e:
+            print(e)
             return None,None
     
     @staticmethod
@@ -85,7 +87,8 @@ class SqlOnline:
             curs.execute(query)
             url = curs.fetchone()[0]
             return url
-        except:
+        except Exception as e:
+            print(e)
             return ""
         finally:
             self._close(conn,curs)

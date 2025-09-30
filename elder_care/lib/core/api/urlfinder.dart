@@ -1,6 +1,7 @@
 import 'package:mysql_client/mysql_client.dart';
 
 Future<String> getPublicUrl() async {
+  return 'https://lamps-hostel-customs-dem.trycloudflare.com';
   MySQLConnection? conn;
   const DB_URL = 'mysql://project_fortycourt:117375f4f8594cdd6211ee81756a14a779688625@yethg8.h.filess.io:3307/project_fortycourt';
   String url='';
