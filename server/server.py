@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from reminders import readtime, Reminder, get_utc_timestamp, llama_extract_task_and_time
 from database.database import db
+from time import time 
 
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
@@ -89,14 +90,15 @@ async def chat_endpoint(request: ChatRequest):
             #print( llama_extract_task_and_time(user_input, chain)['time'])
             chat_history.add_user_message(user_input)
             chat_history.add_ai_message(acknowledgement_text)
-            time = llama_extract_task_and_time(user_input, chain)['time']
-            print(time)
-            db.execute("INSERT INTO reminders(task,time) VALUES(?,?);", extracted_data.reminder_task, time)
+            usertime = llama_extract_task_and_time(user_input, chain)['time']
+            print(usertime)
+            notification_id = int(time() * 1000) % 100000
+            db.execute("INSERT INTO reminders(notifid,task,time) VALUES(?,?,?);", notification_id, extracted_data.reminder_task, usertime)
             return JSONResponse(content={   
                 "type": "reminder_scheduled",
                 "data": {
                     "task": extracted_data.reminder_task,
-                    "scheduled_time_utc": time,
+                    "scheduled_time_utc": usertime,
                     "acknowledgement": acknowledgement_text
                 }
             })
@@ -139,7 +141,7 @@ def add_reminder(reminder: Reminder):
         notifId = reminder.notifid
         task = reminder.task
         time = reminder.time  
-        db.execute("INSERT INTO reminders  VALUES (? , ?, ?)", notifId, task, time)
+        db.execute("INSERT INTO reminders(notifid,task,time)  VALUES (? , ?, ?)", notifId, task, time)
         return {"status": "success", "message": "Reminder added"}
     except Exception as e:
         print(e)
@@ -148,7 +150,7 @@ def add_reminder(reminder: Reminder):
 @app.delete("/reminderDelete/{notifid}")
 def delete_reminder(notifid: int):
     try:
-        db.execute("DELETE FROM reminders WHERE id = ?", notifid)
+        db.execute("DELETE FROM reminders WHERE notifid = ?", notifid)
         return {"status": "success", "message": f"Reminder with id {notifid} deleted"}
     except Exception as e:
         print(e)

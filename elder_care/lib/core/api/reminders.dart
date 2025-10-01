@@ -1,14 +1,16 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:elder_care/core/api/urlfinder.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 // Declare the plugin globally
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-final StreamController<NotificationResponse> selectNotificationStream =StreamController<NotificationResponse>.broadcast();
-
 // Define a function for initialization
 Future<void> initializeAppDependencies() async {
   // MUST be called first to ensure widget binding is initialized
@@ -27,23 +29,46 @@ Future<void> initializeAppDependencies() async {
   const InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
   );
-  void onNotificationTap(NotificationResponse response) {
-    print("Tapped Notification (foreground): ${response.id}");
-  }
-
-  @pragma('vm:entry-point')
-  void notificationTapBackground(NotificationResponse notificationResponse) {
-     print('notification(${notificationResponse.id}) action tapped: '
-     '${notificationResponse.actionId} with'
-     ' payload: ${notificationResponse.payload}');
-  }
 
   await flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-    onDidReceiveNotificationResponse: selectNotificationStream.add,
-    onDidReceiveBackgroundNotificationResponse: notificationTapBackground, // Correctly passed
+    initializationSettings,// Correctly passed
+    onDidReceiveNotificationResponse: (NotificationResponse response) async{
+      final url = await getPublicUrl();
+      final int? notifId = response.id;
+      print(notifId);
+      if (notifId != null) {
+
+        final notifDeleteUrl = Uri.parse('$url/reminderDelete/$notifId');
+        final response = await http.delete(notifDeleteUrl);
+      }
+    },
+    onDidReceiveBackgroundNotificationResponse:notificationTapBackground
+
   );
 
+}
+
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse response) async{
+  final url = await getPublicUrl();
+  final int? notifId = response.id;
+  print(notifId);
+  if (notifId != null) {
+
+    final notifDeleteUrl = Uri.parse('$url/reminderDelete/$notifId');
+    final response = await http.delete(notifDeleteUrl);
+  }
+}
+
+
+Future<void> requestNotificationPermissionAndroidOnly() async {
+  if (Platform.isAndroid) {
+      final status = await Permission.notification.status;
+      if (!status.isGranted) {
+        final result = await Permission.notification.request();
+        print('Notification permission: $result');
+    }
+  }
 }
 
 Future<void> scheduleNativeReminder(String task, String scheduledTimeUtc) async {

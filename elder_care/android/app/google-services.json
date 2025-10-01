@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "71577090215",
+    "firebase_url": "https://urlstore-cfd61-default-rtdb.firebaseio.com",
+    "project_id": "urlstore-cfd61",
+    "storage_bucket": "urlstore-cfd61.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:71577090215:android:b0c542153150433af0c382",
+        "android_client_info": {
+          "package_name": "com.TheABKArc.elder_care"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjSZJuREJAT5a26vk8rbZKsGrRVkJ-6nI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
