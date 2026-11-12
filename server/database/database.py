@@ -34,6 +34,6 @@ CREATE TABLE IF NOT EXISTS emergency (
 );
 """)
 
-#db.execute("""INSERT INTO emergency(name,number) VALUES("Aravind", 8111938885)""")
+#db.execute("""INSERT INTO emergency(name,number) VALUES("Aravind", 123456789)""")
 #TASKS = db.fetchall("SELECT task,time FROM reminders")
 #print(TASKS)
